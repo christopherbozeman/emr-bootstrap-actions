@@ -8,7 +8,7 @@ set -x -e
 #   -g		      - For Spark builds 1.1.0.c and later, enables Ganglia metrics
 #   -x                - Sets the default Spark config for dedictate Spark job utilization [1 executor per node, all vcore and memory, all core nodes]
 #   -u <s3path>       - Add the jars in the given S3 path to spark classpath in the user-provided directory (ahead of all other dependencies) [Spark 1.2.0.b and later]
-#   -a		      - (Use cautiously) Place spark-assembly-*.jar ahead of all jars on spark classpath 
+#   -a		      - (Use cautiously) Place spark-assembly-*.jar ahead of all system jars on spark classpath
 #
 # Supported versions
 #
@@ -290,7 +290,7 @@ then
 	echo "Placing spark-assembly-*.jar to beginning of spark classpath."
 	SPARK_ASSEMBLY=$(ls -l /home/hadoop/spark/lib/spark-assembly-*.jar |  perl -p -i -e 's|.*(spark-assembly.*\.jar)|$1|g')
 	cp -f /home/hadoop/spark/conf/spark-env.sh /home/hadoop/spark/conf/spark-env.sh.prev
-	perl -p -i -e 's|SPARK_CLASSPATH="/|SPARK_CLASSPATH="/home/hadoop/spark/lib/$SPARK_ASSEMBLY:/|g' /home/hadoop/spark/conf/spark-env.sh
+	perl -p -i -e "s|SPARK_CLASSPATH=\"/|SPARK_CLASSPATH=\"/home/hadoop/spark/lib/$SPARK_ASSEMBLY:/|g" /home/hadoop/spark/conf/spark-env.sh
 fi
 
 if [ "$USER_PROVIDED_JARS" != "" ]
