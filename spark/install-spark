@@ -7,7 +7,8 @@ set -x -e
 #   -v <version>      - Ability to select a specific Spark build version according to supported list
 #   -g		      - For Spark builds 1.1.0.c and later, enables Ganglia metrics
 #   -x                - Sets the default Spark config for dedictate Spark job utilization [1 executor per node, all vcore and memory, all core nodes]
-#   -u <s3path> - Added the jars in the given S3 path to spark classpath (ahead of all other dependencies).
+#   -u <s3path>       - Add the jars in the given S3 path to spark classpath in the user-provided directory (ahead of all other dependencies) [Spark 1.2.0.b and later]
+#   -a		      - (Use cautiously) Place spark-assembly-*.jar ahead of all jars on spark classpath 
 #
 # Supported versions
 #
@@ -86,6 +87,7 @@ SPARK_111e=http://support.elasticmapreduce.s3.amazonaws.com/spark/1.1.1/install-
 SPARK_111f=http://support.elasticmapreduce.s3.amazonaws.com/spark/1.1.1/install-spark-1.1.1.f.py
 
 SPARK_120a=http://support.elasticmapreduce.s3.amazonaws.com/spark/1.2.0/install-spark-1.2.0.a.py
+SPARK_120b=http://support.elasticmapreduce.s3.amazonaws.com/spark/1.2.0/install-spark-1.2.0.b.py
 
 SPARK_11x=http://support.elasticmapreduce.s3.amazonaws.com/spark/1.1/install-spark-1.1.py
 SPARK_build=2014112801
@@ -97,10 +99,12 @@ INSTALLGANGLIA=0
 
 SPARK_MAX_SCRIPT=http://support.elasticmapreduce.s3.amazonaws.com/spark/maximize-spark-default-config
 SPARK_MAX=0
-USER_PROVIDED_JARS=
+USER_PROVIDED_JARS=""
+
+SPARK_ASSEMBLY_CP_FIRST=0
 
 REQUESTED_VERSION="(not specified)"
-while getopts "v:gb:xu:" opt; do
+while getopts "v:gb:xu:a" opt; do
   case $opt in
     v)
       REQUESTED_VERSION=$OPTARG
@@ -116,6 +120,9 @@ while getopts "v:gb:xu:" opt; do
       ;;
     u)
       USER_PROVIDED_JARS=$OPTARG
+      ;;
+    a)
+      SPARK_ASSEMBLY_CP_FIRST=1
       ;;
   esac
 done
@@ -139,7 +146,7 @@ then
 
 elif [ "$HADOOP_VERSION" == "2.4.0" ] 
 then
-	echo "Available Spark versions: 1.0.2, 1.1.0, 1.1.0.b, 1.1.0.c, 1.1.0.d, 1.1.0.e, 1.1.0.f, 1.1.0.g, 1.1.0.h, 1.1.1.a, 1.1.1.b, 1.1.1.c, 1.1.1.d, 1.1.1.e, 1.2.0.a"
+	echo "Available Spark versions: 1.0.2, 1.1.0, 1.1.0.b, 1.1.0.c, 1.1.0.d, 1.1.0.e, 1.1.0.f, 1.1.0.g, 1.1.0.h, 1.1.1.a, 1.1.1.b, 1.1.1.c, 1.1.1.d, 1.1.1.e, 1.2.0.a", 1.2.0.b
 
 else
 	echo "Unknown hadoop version, unable to install"
@@ -160,7 +167,7 @@ else
 	echo "Undefined version"
 fi
 
-if [ "$HADOOP_VERSION" == "2.4.0" ] && [ "$REQUESTED_VERSION" != "1.0.2" ] && [ "$REQUESTED_VERSION" != "1.1.0" ] && [ "$REQUESTED_VERSION" != "1.1.0.b" ] && [ "$REQUESTED_VERSION" != "1.1.0.c" ] && [ "$REQUESTED_VERSION" != "1.1.0.d" ] && [ "$REQUESTED_VERSION" != "1.1.0.e" ] && [ "$REQUESTED_VERSION" != "1.1.0.f" ] && [ "$REQUESTED_VERSION" != "1.1.0.g" ] && [ "$REQUESTED_VERSION" != "1.1.0.h" ] && [ "$REQUESTED_VERSION" != "1.1.1.a" ] && [ "$REQUESTED_VERSION" != "1.1" ]  && [ "$REQUESTED_VERSION" != "1.1.1.b" ] && [ "$REQUESTED_VERSION" != "1.1.1.c" ] && [ "$REQUESTED_VERSION" != "1.1.1.d" ] && [ "$REQUESTED_VERSION" != "1.2" ] && [ "$REQUESTED_VERSION" != "1.1.1.e" ] && [ "$REQUESTED_VERSION" != "1.1.1.f" ] && [ "$REQUESTED_VERSION" != "1.2.0.a" ]
+if [ "$HADOOP_VERSION" == "2.4.0" ] && [ "$REQUESTED_VERSION" != "1.0.2" ] && [ "$REQUESTED_VERSION" != "1.1.0" ] && [ "$REQUESTED_VERSION" != "1.1.0.b" ] && [ "$REQUESTED_VERSION" != "1.1.0.c" ] && [ "$REQUESTED_VERSION" != "1.1.0.d" ] && [ "$REQUESTED_VERSION" != "1.1.0.e" ] && [ "$REQUESTED_VERSION" != "1.1.0.f" ] && [ "$REQUESTED_VERSION" != "1.1.0.g" ] && [ "$REQUESTED_VERSION" != "1.1.0.h" ] && [ "$REQUESTED_VERSION" != "1.1.1.a" ] && [ "$REQUESTED_VERSION" != "1.1" ]  && [ "$REQUESTED_VERSION" != "1.1.1.b" ] && [ "$REQUESTED_VERSION" != "1.1.1.c" ] && [ "$REQUESTED_VERSION" != "1.1.1.d" ] && [ "$REQUESTED_VERSION" != "1.2" ] && [ "$REQUESTED_VERSION" != "1.1.1.e" ] && [ "$REQUESTED_VERSION" != "1.1.1.f" ] && [ "$REQUESTED_VERSION" != "1.2.0.a" ] && [ "$REQUESTED_VERSION" != "1.2.0.b" ]
 then
 	echo "Unknown Spark version requested given available Spark versions for this Hadoop version"
 	exit 1
@@ -257,9 +264,12 @@ then
         python install-spark-script $SPARK_build
 elif [ "$REQUESTED_VERSION" == "1.2.0.a" ]
 then
-        echo "Installing $SPARK_120a with $USER_PROVIDED_JARS jars"
         wget -O install-spark-script $SPARK_120a
-        python install-spark-script BA $USER_PROVIDED_JARS
+        python install-spark-script BA 
+elif [ "$REQUESTED_VERSION" == "1.2.0.b" ]
+then
+        wget -O install-spark-script $SPARK_120b
+        python install-spark-script BA
 else
 	echo "Unknown requested Spark version, $REQUESTED_VERSION"
 	exit 1
@@ -280,6 +290,23 @@ then
         bash maximize-spark-default-config
 fi
 
+if [ $SPARK_ASSEMBLY_CP_FIRST -eq 1 ]
+then
+	echo "Placing spark-assembly-*.jar to beginning of spark classpath."
+	SPARK_ASSEMBLY=$(ls -l /home/hadoop/spark/lib/spark-assembly-*.jar |  perl -p -i -e 's|.*(spark-assembly.*\.jar)|$1|g')
+	cp -f /home/hadoop/spark/conf/spark-env.sh /home/hadoop/spark/conf/spark-env.sh.prev
+	perl -p -i -e 's|SPARK_CLASSPATH="/|SPARK_CLASSPATH="/home/hadoop/spark/lib/$SPARK_ASSEMBLY:/|g' /home/hadoop/spark/conf/spark-env.sh
+fi
+
+if [ "$USER_PROVIDED_JARS" != "" ]
+then
+	#$USER_PROVIDED_JARS should be HDFS path, copy contents to ~/spark/classpath/user-provided/
+	echo "Adding $USER_PROIVDED_JARS to Spark classpath"
+	mkdir -p ~/spark/classpath/user-provided
+	hadoop fs -get $USER_PROVIDED_JARS/* ~/spark/classpath/user-provided/
+	cp -f /home/hadoop/spark/conf/spark-env.sh /home/hadoop/spark/conf/spark-env.sh.prev
+	perl -p -i -e 's|SPARK_CLASSPATH="/|SPARK_CLASSPATH="/home/hadoop/spark/classpath/user-provided/*:/|g' /home/hadoop/spark/conf/spark-env.sh
+fi	
 
 
 exit 0
